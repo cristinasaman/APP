@@ -18,16 +18,16 @@
 - the structure of the basic but functional prototype with the following essential components:
 
   1. Object Detection Implementation (Software)
-  - use a pre-trained model (e.g., YOLOv5 or OpenCV Haar cascades) to avoid training complexity.
-  - process images/video frames in parallel instead of handling a full video stream in real time.
-  - use Python & OpenCV/TensorFlow/PyTorch for simplicity.
+    - use a pre-trained model (e.g., YOLOv5 or OpenCV Haar cascades) to avoid training complexity.
+    - process images/video frames in parallel instead of handling a full video stream in real time.
+    - use Python & OpenCV/TensorFlow/PyTorch for simplicity.
 
   2. Parallelization on a Single Machine (Hardware)
-  - if you have a GPU, leverage CUDA for parallel processing.
-  - if no GPU is available, you can still use multiple CPU threads to simulate parallelism.
-  - example: process multiple images in parallel using Python’s multiprocessing or PyTorch’s DataParallel.
+    - if you have a GPU, leverage CUDA for parallel processing.
+    - if no GPU is available, you can still use multiple CPU threads to simulate parallelism.
+    - example: process multiple images in parallel using Python’s multiprocessing or PyTorch’s DataParallel.
 
   3. SimGrid Simulation (Performance Testing)
-  - model a simple multi-GPU architecture virtually in SimGrid.
-  - simulate different workloads (e.g., 1 vs. 2 vs. 4 GPUs) to evaluate parallel efficiency.
-  - analyze execution time and resource utilization.
+    - model a simple multi-GPU architecture virtually in SimGrid.
+    - simulate different workloads (e.g., 1 vs. 2 vs. 4 GPUs) to evaluate parallel efficiency.
+    - analyze execution time and resource utilization.
