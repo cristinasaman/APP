@@ -38,25 +38,61 @@ This application performs real-time object detection across multiple surveillanc
 
   - Internal concurrency in the detection pipeline (e.g., using concurrent queues for pipelining).
 
-## Scenario: Smart Airport Surveillance
-### Context:
-  An airport deploys a smart surveillance system to monitor different zones: check-in, boarding gates, luggage claim, etc.
+## 🔐 Scenario Description: Restricted Area Surveillance in a Data Center
+In this scenario, we design and simulate a real-time object detection system used to monitor access to high-security server rooms in a corporate data center. These rooms contain critical IT infrastructure and are only accessible to a limited number of authorized personnel.
 
-### Key Use Cases:
+The surveillance system adds an intelligent, automated layer to existing badge-based access control. It uses cameras installed at the entry points and within the room to detect the presence of individuals and verify that access rules are being followed.
 
-  - Detect unattended luggage.
+## Key Objectives:
+  - Ensure that only authorized personnel are physically present in the room.
+  
+  - Detect and alert on unauthorized access, after-hours entry, or tailgating (more than one person entering on a single ID).
+  
+  - Monitor for potential safety concerns, such as a person being unresponsive for an extended period inside the room.
 
-  - Count number of people in restricted areas.
+## How the System Works:
+1. Person Entry Detected: A camera at the entrance begins recording when the door opens.
 
-  - Track crowd density in specific zones.
+2. Human Detection: The system performs object detection to identify the presence of people in the camera frame.
 
-  Each camera feed is processed in parallel, and alerts are sent to airport security in real time. Different parts of the system run on different nodes (e.g., zone-specific servers), and a master node aggregates the alerts.
+3. Identity Check:
 
-### Simulation with SimGrid:
-  You can simulate this architecture using SimGrid by modeling:
+The system cross-checks the detected person with the badge or facial recognition data.
 
-  - Processing Nodes: Each node simulates the detection process for a camera or a group of cameras.
+4. Rule Evaluation:
 
-  - Communication: Alerts and status updates are sent to a master node, mimicking MPI communication.
+  - If the person is authorized → Log entry.
+  
+  - If unknown → Raise alert.
+  
+  - If more than one person is detected and only one badge was used → Raise alert.
+  
+  - If person is detected during restricted hours → Raise alert.
+  
+  - If a person remains inside with no movement beyond a certain time → Raise safety alert.
 
-  - Load Variation: Simulate varying crowd sizes or activity levels to stress-test the system.
+## System Architecture:
+  - Each server room is monitored by an independent processing unit responsible for handling its camera feed and rule evaluation.
+  
+  - These units operate in parallel, allowing the system to scale across multiple rooms or zones.
+  
+  - A central node (e.g., security server) receives alerts and logs from each room and provides a unified interface for security personnel.
+
+## Simulation in SimGrid:
+This architecture can be modeled in SimGrid by:
+  
+  - Defining each room as a processing node, handling camera input and detection logic.
+  
+  - Modeling the central logging/alerting system as a separate node.
+  
+  - Simulating communication between nodes using message passing.
+  
+  - Introducing variable workloads (e.g., more entries during working hours) and network latency to test system behavior and scalability.
+  
+  - This scenario is ideal for parallel processing because:
+  
+  - Multiple cameras/rooms work independently (task-level parallelism).
+  
+  - Each detection task involves multiple parallel software stages (data-level parallelism).
+  
+  - Communication and alerting are decoupled, allowing asynchronous operation.
