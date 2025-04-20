@@ -1,0 +1,111 @@
+<!-- Hosts (Computational Resources):
+camera_host_1, camera_host_2, ... camera_host_N: Represents the camera's network interface or a minimal edge device right next to it.
+Assign minimal processing power (e.g., 1 Gf - 1 Gigaflop/s), mainly acts as a starting point for data.
+
+processing_node_1, processing_node_2, ... processing_node_M: These are the core workhorses (servers, potentially with GPUs) running OD and FR. 
+Assign significant processing power (e.g., 10 Tf - 10 Teraflop/s, or more if simulating GPUs). 
+M can be less than, equal to, or greater than N.
+
+database_server: Hosts the personnel and access rule database. 
+Needs moderate processing power for lookups (e.g., 100 Gf) and good I/O (SimGrid focuses on CPU/Network, less on disk I/O directly, but ensure network link is good).
+
+alert_server: Receives and logs alerts. 
+Can often be co-located with the database server or be a separate host. Minimal processing power needed (e.g., 10 Gf).
+
+Links (Network Connections):
+link_cam1_proc, link_cam2_proc, ...: Connect each camera_host_N to the network infrastructure that reaches the processing nodes. 
+Define bandwidth (e.g., 1Gbps) and latency (e.g., 5ms). These might be slower links.
+
+link_proc_db: Connects processing_node_M to database_server. 
+Should be high bandwidth (e.g., 10Gbps) and low latency (e.g., 0.5ms), assuming a data center LAN.
+
+link_proc_alert: Connects processing_node_M to alert_server. Similar to link_proc_db.
+
+link_backbone (Optional but recommended): You might define a central switch or backbone link connecting processing nodes, DB server, and alert server, rather than direct links between all pairs.
+
+Cluster/Zone (Optional): 
+SimGrid allows grouping hosts into clusters, which can simplify defining network routes and properties within/between clusters (e.g., representing different buildings or network segments). -->
+
+<!--TODO: check bandwith and latency values -->
+<?xml version='1.0'?>
+<!DOCTYPE platform SYSTEM "https://simgrid.org/simgrid.dtd">
+<platform version="4.1">
+<zone id="world" routing="Flynn">
+   <zone id="core_services" routing="Full">
+
+      <host id="database_server" speed="100Gf"/>
+      <host id="alert_server" speed="10Gf"/>
+      <host id="core_router" speed="1Gf"/> 
+
+      <link id="core_intra_link" bandwidth="100Gbps" latency="0.1ms"/>
+
+      <route src="database_server" dst="core_router">
+         <link_ctn id="core_intra_link"/>
+      </route>
+      <route src="alert_server" dst="core_router">
+         <link_ctn id="core_intra_link"/>
+      </route>
+
+    </zone>
+
+   <zone id="zone_1" routing="Full">
+
+      <host id="z1_camera_host_1" speed="1Gf"/>
+      <host id="z1_camera_host_2" speed="1Gf"/>
+      <host id="z1_camera_host_3" speed="1Gf"/>
+      <host id="z1_camera_host_4" speed="1Gf"/>
+
+      <host id="z1_processing_node_1" speed="10Tf"/>
+      <host id="z1_processing_node_2" speed="10Tf"/>
+      <host id="z1_processing_node_3" speed="10Tf"/>
+      <host id="z1_processing_node_4" speed="10Tf"/>
+
+      <host id="z1_router" speed="1Gf"/> 
+
+      <link id="z1_intra_link" bandwidth="1Gbps" latency="1ms"/>
+
+      <route src="z1_camera_host_1" dst="z1_router">
+         <link_ctn id="z1_intra_link"/>
+      </route>
+      <route src="z1_camera_host_2" dst="z1_router">
+         <link_ctn id="z1_intra_link"/>
+      </route>
+      <route src="z1_camera_host_3" dst="z1_router">
+         <link_ctn id="z1_intra_link"/>
+      </route>
+      <route src="z1_camera_host_4" dst="z1_router">
+         <link_ctn id="z1_intra_link"/>
+      </route>
+
+      <route src="z1_processing_node_1" dst="z1_router">
+         <link_ctn id="z1_intra_link"/>
+      </route>
+      <route src="z1_processing_node_2" dst="z1_router">
+         <link_ctn id="z1_intra_link"/>
+      <route src="z1_processing_node_3" dst="z1_router">
+         <link_ctn id="z1_intra_link"/>
+      </route>      
+      <route src="z1_processing_node_4" dst="z1_router">
+         <link_ctn id="z1_intra_link"/>
+      </route>
+
+      <route src="z1_camera_host_1" dst="z1_proc1">
+         <link_ctn id="z1_intra_link"/>
+      </route>
+      <route src="z1_camera_host_2" dst="z1_proc2">
+         <link_ctn id="z1_intra_link"/>
+      </route>
+      <route src="z1_camera_host_3" dst="z1_proc3">
+         <link_ctn id="z1_intra_link"/>
+      </route>
+      <route src="z1_camera_host_4" dst="z1_proc4">
+         <link_ctn id="z1_intra_link"/>
+      </route>
+   </zone>
+
+   <link id="bb_z1_core" bandwidth="10Gbps" latency="5ms"/>
+
+   <zoneRoute src="zone1" dst="core_zone" gw_src="z1_router" gw_dst="core_router"><link_ctn id="bb_z1_core"/></zoneRoute>
+</zone>
+</platform>
+
