@@ -41,10 +41,13 @@ class ProcessingActor:
             
                 this_actor.info(f"Received frame '{frame}' from {self.camera} at {Engine.clock:.3f}") 
                 
+                #  Parallelize the object detection and facial recognition tasks
+                
                 person_found = self.run_object_detection(frame)
                 if person_found:
                     this_actor.info(f"Person detected in frame '{frame}'. Running facial recognition...")
                     
+                    #  Coordinates (like x_min, y_min, x_max, y_max) defining a rectangle around the detected person in the image.
                     face_id = self.run_facial_recognition(frame)
                     if face_id != "Unnauthorized":
                         self.query_database(face_id)
@@ -64,7 +67,7 @@ class ProcessingActor:
         try:
             this_actor.execute(flops_od)
             
-            person_detected = self.simulate_person_detection()
+            person_detected = self.simulate_person_detection() 
             
             if person_detected:
                 this_actor.info("OD Result: Person FOUND.")                 
@@ -124,5 +127,15 @@ class ProcessingActor:
         except SimgridError as e:
             this_actor.error(f"Error during alert sending: {e}")
             return False
+        
+        return True
+    
+    def simulate_person_detection(self, frame):
+        # Simulate the object detection process
+        # In a real scenario, this would involve running a model on the frame data
+        
+        # results = model(frame)
+        # box, confidence, class_id = results[0]
+        
         
         return True

@@ -42,6 +42,7 @@ class DatabaseActor:
         flops_db = 1000       
         
         try:
+            #  cost for a lookup is significantly lower than your OD/FR costs. The key is that the system doesn't grind to a halt waiting for serial database checks.
             this_actor.execute(flops_db)
             
             face_id = self.simulate_lookup()

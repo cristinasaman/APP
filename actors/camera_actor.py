@@ -2,7 +2,7 @@
 # - each frame (based on the capture interval) is sent to the processing actor's mailbox 
 
 # TODO: 
-#   - determine the frame size and the capture interval
+#   - determine the frame size for high resolution images and the capture interval
 #   - update? the code in main.py for camera actor 
 
 from simgrid import Mailbox, this_actor, SimgridError, Engine

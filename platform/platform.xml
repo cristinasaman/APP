@@ -27,6 +27,7 @@ Cluster/Zone (Optional):
 SimGrid allows grouping hosts into clusters, which can simplify defining network routes and properties within/between clusters (e.g., representing different buildings or network segments). -->
 
 <!--TODO: check bandwith and latency values -->
+<!-- GPU?? -->
 <?xml version='1.0'?>
 <!DOCTYPE platform SYSTEM "https://simgrid.org/simgrid.dtd">
 <platform version="4.1">

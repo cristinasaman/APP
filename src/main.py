@@ -1,5 +1,7 @@
 import sys
-from simgrid import Actor, SimgridError, Engine
+from simgrid import Actor, SimgridError, Engine, Host
+
+from APP.actors.camera_actor import CameraActor
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
