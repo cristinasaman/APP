@@ -30,6 +30,7 @@ if __name__ == '__main__':
     ALERT_MB = "alert_server_mb"
 
     # 4. Deploy Actors onto Hosts from XML
+    # TODO: see how to assign processing nodes to cameras
     try:
         print(">>> Deploying actors...")
         # --- Deploy Zone 1 Actors ---

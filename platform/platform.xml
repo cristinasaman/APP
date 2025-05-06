@@ -31,9 +31,10 @@ SimGrid allows grouping hosts into clusters, which can simplify defining network
 <?xml version='1.0'?>
 <!DOCTYPE platform SYSTEM "https://simgrid.org/simgrid.dtd">
 <platform version="4.1">
-<zone id="world" routing="Flynn">
-   <zone id="core_services" routing="Full">
+<zone id="world">
+   <zone id="core_services">
 
+      <!-- -->
       <host id="database_server" speed="100Gf"/>
       <host id="alert_server" speed="10Gf"/>
       <host id="core_router" speed="1Gf"/> 
@@ -49,7 +50,11 @@ SimGrid allows grouping hosts into clusters, which can simplify defining network
 
     </zone>
 
-   <zone id="zone_1" routing="Full">
+   <!-- 
+      zone represented by cameras and their assigned processing nodes
+      
+    -->
+   <zone id="zone_1">
 
       <host id="z1_camera_host_1" speed="1Gf"/>
       <host id="z1_camera_host_2" speed="1Gf"/>
@@ -90,23 +95,25 @@ SimGrid allows grouping hosts into clusters, which can simplify defining network
          <link_ctn id="z1_intra_link"/>
       </route>
 
-      <route src="z1_camera_host_1" dst="z1_proc1">
+      <route src="z1_camera_host_1" dst="z1_processing_node_1">
          <link_ctn id="z1_intra_link"/>
       </route>
-      <route src="z1_camera_host_2" dst="z1_proc2">
+      <route src="z1_camera_host_2" dst="z1_processing_node_2">
          <link_ctn id="z1_intra_link"/>
       </route>
-      <route src="z1_camera_host_3" dst="z1_proc3">
+      <route src="z1_camera_host_3" dst="z1_processing_node_3">
          <link_ctn id="z1_intra_link"/>
       </route>
-      <route src="z1_camera_host_4" dst="z1_proc4">
+      <route src="z1_camera_host_4" dst="z1_processing_node_4">
          <link_ctn id="z1_intra_link"/>
       </route>
    </zone>
 
    <link id="bb_z1_core" bandwidth="10Gbps" latency="5ms"/>
 
-   <zoneRoute src="zone1" dst="core_zone" gw_src="z1_router" gw_dst="core_router"><link_ctn id="bb_z1_core"/></zoneRoute>
+   <zoneRoute src="zone1" dst="core_zone" gw_src="z1_router" gw_dst="core_router">
+      <link_ctn id="bb_z1_core"/>
+   </zoneRoute>
 </zone>
 </platform>
 

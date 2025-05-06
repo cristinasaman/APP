@@ -40,3 +40,68 @@
 6. Parallelism
 
 7. Metrici?
+
+conditii ca aplicatia si arhitectura sa fie paralele
+metrici in parte teoretica? - legea Amdahl, 
+focus pe paralelizare? justificare de ce e paralelizabila
+hardware suporta paralelism - unitati de executie pentru task-uri
+
+definire task-uri care se executa in paralel
+definire arhitectura pe care se executa task-uri si aratam exemplu de paralelism? (adica ce folosesc?)
+
+focus pe tip de arhitectura (shared, distributed, )
+acceleratori? SIMD 
+
+noduri conectate prin retea -> in interiorul nodului (memorie partajata pe un numar de core-uri + accelarator specific sarcinii lui)
+memorie distribuita - nu e limitata 
+hardware -> host-uri cu capacitate de procesare
+partea de accelare nu se descompune - fiecare accelerator este un host separat - bottleneck-ul se simuleaza 
+arhitectura unificata de memorie? -> accelerator legat la core-uri obisnuite prin intermediul unui link (PCIX?)
+legaturi - latime de banda, latenta
+costuri la echipamente 
+link-uri si rute
+
+software:
+paradigma - message passing - procese
+biblioteci 
+procese - actioneaza concurent si comunica intre ele - schimbare data si sincronizare
+accelerator pentru actor
+cutii postale si cat de mari sunt task-urile pentru actor si proces astfel incat 
+partea de calcul trebuie sa domine partea de comunicatie
+dimensiune imagine -> cate operatii face actorul pentru calcul - timp de comunicatie 
+calcul cale, trasee cu latime de banda si latenta
+mesaj - latenta / dimensiune mesaj ...
+
+mapare soft pe hardware - actor pe host-urile care ruleaza
+se face o rulare la sfarsit - calculat timpi
+timpi global - duratia executie globala
+- defalcare?? timpi de calcul si timpi de comunicatie
+metrici finale: acceleratie, eficienta si cost
+3 iteratii: secventiala, paralela, si imbunatatita
+
+text - word in care se descrie proiectul
+  introducere sintetizare probleme
+    restrictii
+    problema e paralelizabila pentru ca..
+  sistem: arhitectura
+    software: procese descompunere aplicatie in 
+      calcule de tip - accelerare
+      tip aplicatie => tip hardware
+      schema arhitectura??
+  simulare
+    actori
+      cod anexat
+    cost 
+    schema sugestiva
+  rezultate simulare
+
+  slide-uri cum arata sistemul - poze?
+  simulare actori host-uri scheme
+
+  exemple tutoriale simulator            
+
+3 fisiere de la simulare
+fisiere sursa
+powerpoint - rezumat al ceea ce avem
+
+
