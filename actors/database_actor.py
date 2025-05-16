@@ -16,6 +16,13 @@
 # (e.g., check against an internal data structure representing authorized personnel per zone).   
 # Implement the other functions as needed.
 
+# TODO: Mutarea logicii de matching facial în DatabaseActor
+# Într-un sistem real, compararea encodingului facial (matching) cu baza de date se face pe server (nu local).
+# Se poate simula trimiterea unui vector de encoding de la ProcessingActor și efectuarea matchingului (ex: distanță Euclidiană)
+# direct în DatabaseActor, pentru a reflecta arhitecturi reale și pentru a evidenția paralelizarea în procesul de identificare.
+#pastrare ori check or simulate lookup
+
+
 from simgrid import Mailbox, this_actor, SimgridError, Engine, Host
 import random
 
@@ -189,9 +196,141 @@ class DatabaseActor:
         return zone_rules["default"]
     
     # Implementare pentru compatibilitate cu versiunea anterioară
-    def simulate_lookup(self):
-        """
-        Simulează căutarea în baza de date.
-        Menținută pentru compatibilitate cu implementarea anterioară.
-        """
-        face_ids = ["zone1_employee_001", "zone1_visitor_002", "zone1_manager_003", "unknown_face"]
+    # def simulate_lookup(self, face_id=None, zone_id=None):
+    #     """
+    #     Simulează căutarea în baza de date.
+        
+    #     Parametri:
+    #     face_id - ID-ul facial pentru verificare (opțional)
+    #     zone_id - ID-ul zonei pentru verificare (opțional)
+        
+    #     Returnează:
+    #     - Dacă face_id și zone_id sunt specificate: boolean pentru autorizare
+    #     - Dacă doar face_id este specificat: dicționar cu zone autorizate
+    #     - Dacă nu este specificat nimic: listă de ID-uri faciale din baza de date
+    #     """
+    #     # Inițializăm regulile de acces dacă este nevoie
+    #     if not hasattr(self, 'access_rules') or not hasattr(self, 'special_users'):
+    #         self.init_access_rules()
+        
+    #     # Lista completă de ID-uri faciale disponibile în baza de date
+    #     available_face_ids = {
+    #         # Angajați Zone 1
+    #         "zone1_employee_001": {"name": "John Smith", "role": "Engineer", "zones": ["zone_1"]},
+    #         "zone1_employee_042": {"name": "Maria Rodriguez", "role": "Technician", "zones": [], "blacklisted": True}, 
+    #         "zone1_employee_108": {"name": "David Chen", "role": "Engineer", "zones": ["zone_1", "zone_2"]},
+    #         "zone1_employee_215": {"name": "Sarah Johnson", "role": "Analyst", "zones": ["zone_1", "zone_3"]},
+            
+    #         # Vizitatori Zone 1
+    #         "zone1_visitor_002": {"name": "Alex Brown", "role": "Contractor", "zones": []},
+    #         "zone1_visitor_013": {"name": "Elena Popescu", "role": "Vendor", "zones": [], "blacklisted": True},
+    #         "zone1_visitor_054": {"name": "James Wilson", "role": "Client", "zones": []},
+            
+    #         # Manageri Zone 1
+    #         "zone1_manager_001": {"name": "Michael Taylor", "role": "Department Head", "zones": ["zone_1", "zone_2", "zone_3"], "whitelisted": True},
+    #         "zone1_manager_003": {"name": "Lisa Wong", "role": "Project Manager", "zones": ["zone_1", "zone_2"]},
+    #         "zone1_manager_007": {"name": "Robert Garcia", "role": "Team Lead", "zones": ["zone_1"]},
+            
+    #         # Personal de securitate Zone 1
+    #         "zone1_security_007": {"name": "Chris Evans", "role": "Security Chief", "zones": ["zone_1", "zone_2", "zone_3", "zone_4"], "whitelisted": True},
+    #         "zone1_security_012": {"name": "Omar Hassan", "role": "Guard", "zones": ["zone_1", "zone_4"]},
+            
+    #         # ID-uri pentru diferite zone
+    #         "zone2_employee_003": {"name": "Fatima Ali", "role": "Researcher", "zones": ["zone_2"]},
+    #         "zone3_manager_002": {"name": "Thomas Lee", "role": "Director", "zones": ["zone_1", "zone_3"]},
+            
+    #         # Placeholder pentru persoane necunoscute
+    #         "unknown_face": {"name": "Unknown Person", "role": "Unknown", "zones": []}
+    #     }
+        
+    #     # Simulăm costul computațional de căutare în baza de date
+    #     lookup_flops = 2000
+    #     this_actor.execute(lookup_flops)
+        
+    #     # Cazul 1: Returnează lista de ID-uri dacă nu sunt specificate parametrele
+    #     if face_id is None and zone_id is None:
+    #         return list(available_face_ids.keys())
+        
+    #     # Cazul 2: Dacă face_id nu există în baza de date, considerăm "unknown_face"
+    #     if face_id not in available_face_ids and face_id != "unknown_face":
+    #         this_actor.info(f"Face ID '{face_id}' not found in database, treating as unknown")
+    #         face_id = "unknown_face"
+        
+    #     # Cazul 3: Verifică autorizarea pentru o zonă specifică
+    #     if face_id is not None and zone_id is not None:
+    #         # 1. Verifică mai întâi blacklist/whitelist (reguli speciale)
+    #         person_info = available_face_ids.get(face_id, available_face_ids["unknown_face"])
+            
+    #         if person_info.get("blacklisted", False):
+    #             this_actor.info(f"Access DENIED for {face_id} (blacklisted user)")
+    #             return False
+                
+    #         if person_info.get("whitelisted", False):
+    #             this_actor.info(f"Access GRANTED for {face_id} (whitelisted user)")
+    #             return True
+            
+    #         # 2. Verifică accesul bazat pe zonă
+    #         if zone_id in person_info["zones"]:
+    #             this_actor.info(f"Access GRANTED for {face_id} in {zone_id} (zone in allowed list)")
+    #             return True
+            
+    #         # 3. Verifică reguli bazate pe tipul utilizatorului și zonă
+    #         # Extrage prefixul din face_id (ex: "zone1_employee_" din "zone1_employee_001")
+    #         prefix_parts = face_id.split("_")
+    #         if len(prefix_parts) >= 2:
+    #             user_type = f"{prefix_parts[0]}_{prefix_parts[1]}_"
+                
+    #             # Reguli de acces bazate pe tipul utilizatorului
+    #             access_by_type = {
+    #                 "zone1_employee_": ["zone_1"],
+    #                 "zone1_manager_": ["zone_1", "zone_2"],
+    #                 "zone1_security_": ["zone_1", "zone_2", "zone_4"],
+    #                 "zone1_visitor_": [],  # Vizitatorii nu au acces implicit
+    #                 "zone2_employee_": ["zone_2"],
+    #                 "zone3_manager_": ["zone_3"],
+    #                 "unknown_": []  # Persoanele necunoscute nu au acces
+    #             }
+                
+    #             allowed_zones = access_by_type.get(user_type, [])
+    #             if zone_id in allowed_zones:
+    #                 this_actor.info(f"Access GRANTED for {face_id} in {zone_id} (rule-based access)")
+    #                 return True
+            
+    #         # 4. Reguli temporale (simulăm în funcție de ora din simulare)
+    #         current_time = Engine.clock % 86400  # Secunde într-o zi (24h)
+    #         is_working_hours = 8*3600 <= current_time <= 20*3600  # Între 8:00 și 20:00
+            
+    #         # Doar angajații și managerii au acces în afara orelor de program
+    #         if not is_working_hours and not any(face_id.startswith(prefix) for prefix in ["zone1_employee_", "zone1_manager_", "zone1_security_"]):
+    #             this_actor.info(f"Access DENIED for {face_id} in {zone_id} (outside working hours)")
+    #             return False
+            
+    #         # 5. Reguli speciale pentru zone specifice
+    #         if zone_id == "zone_1":
+    #             # În zona 1, toți angajații, managerii și personalul de securitate au acces
+    #             if any(face_id.startswith(prefix) for prefix in ["zone1_employee_", "zone1_manager_", "zone1_security_"]):
+    #                 this_actor.info(f"Access GRANTED for {face_id} in {zone_id} (employee in zone_1)")
+    #                 return True
+            
+    #         # 6. Default: acces respins
+    #         this_actor.info(f"Access DENIED for {face_id} in {zone_id} (default deny)")
+    #         return False
+        
+    #     # Cazul 4: Returnează zonele autorizate pentru un ID facial
+    #     elif face_id is not None:
+    #         person_info = available_face_ids.get(face_id, available_face_ids["unknown_face"])
+            
+    #         # Verifică dacă persoana este blacklisted
+    #         if person_info.get("blacklisted", False):
+    #             this_actor.info(f"User {face_id} is blacklisted, no zones accessible")
+    #             return []
+            
+    #         # Verifică dacă persoana este whitelisted
+    #         if person_info.get("whitelisted", False):
+    #             all_zones = ["zone_1", "zone_2", "zone_3", "zone_4"]
+    #             this_actor.info(f"User {face_id} is whitelisted, access to all zones")
+    #             return all_zones
+            
+    #         # Returnează zonele autorizate
+    #         this_actor.info(f"User {face_id} has access to zones: {person_info['zones']}")
+    #         return person_info["zones"]
