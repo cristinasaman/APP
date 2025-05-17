@@ -1,336 +1,142 @@
-# DatabaseActor (runs on database_server):
-
-# Setup: Get own mailbox.
-# Loop:
-# Wait for and receive a query (query_data = mailbox->get()). Get requesting ProcessingActor.
-# Extract Face ID and Zone ID from query_data.
-# Simulate Database Lookup & Access Rule Check:
-# Define computational cost (flops_db_lookup).
-# Execute computation (simgrid::s4u::this_actor::execute(flops_db_lookup)).
-# Apply Rules (Internal Logic): Implement the logic here. This is where the rules live. Based on the received Face ID and Zone ID, determine if access is granted (e.g., check against an internal data structure representing authorized personnel per zone).
-# Create response payload ("Authorized" / "Unauthorized"). Define size (very small, e.g., 100 bytes).
-# Send response back to the requesting ProcessingActor's mailbox (reply_mailbox->put(response_data, response_size)).
-
-# TODO: 
-# Based on the received Face ID and Zone ID, determine if access is granted 
-# (e.g., check against an internal data structure representing authorized personnel per zone).   
-# Implement the other functions as needed.
-
-# TODO: Mutarea logicii de matching facial în DatabaseActor
-# Într-un sistem real, compararea encodingului facial (matching) cu baza de date se face pe server (nu local).
-# Se poate simula trimiterea unui vector de encoding de la ProcessingActor și efectuarea matchingului (ex: distanță Euclidiană)
-# direct în DatabaseActor, pentru a reflecta arhitecturi reale și pentru a evidenția paralelizarea în procesul de identificare.
-#pastrare ori check or simulate lookup
-
-
-from simgrid import Mailbox, this_actor, SimgridError, Engine, Host
+# APP/actors/database_actor.py
+from simgrid import Mailbox, this_actor, SimgridError, Engine # Host might not be needed unless for dynamic speed adjust
 import random
 
 class DatabaseActor:
-    def __init__(self, database_server: str, processing_mailbox_name: str):
+    def __init__(self, my_mailbox_name: str): # Renamed parameter
         """
-        database_server: Name of the database server.
-        processing_mailbox_name: Mailbox name of the ProcessingActor.
+        my_mailbox_name: The mailbox name this DatabaseActor will listen on.
         """
-        
-        self.database_server = database_server
-        self.database_mailbox = Mailbox.by_name(database_server)
-        self.processing_mailbox_name = processing_mailbox_name
-        
-        # Extragerea resurselor computaționale disponibile
+        self.my_mailbox_name = my_mailbox_name
         try:
-            host = Host.by_name(database_server)
-            self.host_speed = host.speed  # Viteza de procesare în FLOPS
-        except Exception as e:
-            this_actor.error(f"Nu s-a putut obține informații despre host: {e}")
-            self.host_speed = 1e9  # Valoare default 1 GFlops
-        
-        # Calculăm capacitatea de procesare a cererilor în paralel
-        if self.host_speed >= 1e11:  # 100 GFlops sau mai mult
-            self.query_parallelism = 4  # Procesează mai multe cereri în paralel
-        else:
-            self.query_parallelism = 1  # Procesare serială
-        
-        # Inițializăm mailbox-ul pentru procesare (opțional, doar pentru compatibilitate cu codul anterior)
-        try:
-            self.processing_mailbox = Mailbox.by_name(self.processing_mailbox_name)
+            self.mailbox = Mailbox.by_name(self.my_mailbox_name)
         except SimgridError as e:
-            this_actor.warning(f"Mailbox {self.processing_mailbox_name} not found. This is fine in a distributed environment.")
-            self.processing_mailbox = None
+            this_actor.error(f"Failed to get own mailbox '{self.my_mailbox_name}'. Actor cannot start.")
+            raise e
         
-        # Inițializăm baza de date cu reguli de acces
-        self.init_access_rules()
+        # Computational cost for a single lookup/authorization check
+        self.db_lookup_flops = 200e6  # Example: 200 MFLOPS (can be tuned)
+        # Optional: Simulate DB's internal parallelism capability
+        # self.query_parallelism_factor = 4 # Number of queries it can "conceptually" handle in parallel
+                                      # Cost executed would be self.db_lookup_flops / self.query_parallelism_factor
+
+        self.init_access_rules() # Initialize the simulated database rules
         
-        this_actor.info(f"DatabaseActor initialized on {database_server} with capacity {self.host_speed/1e9:.2f} GFlops")
-    
-    def __call__(self):
-        """
-        Main function of the database actor.
-        Receives and processes authorization queries.
-        """
-        this_actor.info(f"Started database server on {self.database_server}. Waiting for queries at {Engine.clock:.3f}")
-        
-        while True:
-            try:
-                # Primește o cerere de la un actor de procesare
-                query = self.database_mailbox.get()
-                this_actor.info(f"Received query: {query} at {Engine.clock:.3f}")
-                
-                # Parsează cererea pentru a extrage informațiile necesare
-                face_id, zone_id, reply_mailbox_name = self.parse_query(query)
-                
-                # Verifică dacă mailbox-ul de răspuns există
-                try:
-                    reply_mailbox = Mailbox.by_name(reply_mailbox_name)
-                except SimgridError as e:
-                    this_actor.error(f"Mailbox {reply_mailbox_name} not found for reply. Query: {query}")
-                    continue
-                
-                # Simulează costul computațional al interogării bazei de date
-                # Costul este împărțit în funcție de capacitatea de paralelizare
-                query_flops = 1000  # Cost de bază pentru o interogare
-                this_actor.execute(query_flops / self.query_parallelism)
-                
-                # Verifică autorizarea
-                authorized = self.check_authorization(face_id, zone_id)
-                
-                # Trimite răspunsul înapoi la nodul de procesare
-                response = "Authorized" if authorized else "Unauthorized"
-                this_actor.info(f"Sending response: {response} for Face ID: {face_id}, Zone: {zone_id} to {reply_mailbox_name}")
-                reply_mailbox.put(response, 100)  # 100 bytes pentru răspuns
-                
-            except SimgridError as e:
-                this_actor.error(f"Error while processing query: {e}")
-                # Nu ieșim din buclă pentru a permite sistemului să continue
-                continue
-    
-    def parse_query(self, query):
-        """
-        Parsează cererea primită pentru a extrage informațiile necesare.
-        Format așteptat: "Query: {face_id}, Zone ID: {zone_id},{reply_mailbox}"
-        """
-        try:
-            # Separă componentele cererii
-            query_parts = query.split(',')
-            
-            # Extrage reply_mailbox (ultimul element)
-            reply_mailbox = query_parts[-1].strip()
-            
-            # Extrage face_id din prima parte
-            face_id_part = query_parts[0]
-            face_id = face_id_part.split("Query:")[1].strip()
-            
-            # Extrage zone_id din a doua parte
-            zone_id_part = query_parts[1]
-            zone_id = zone_id_part.split("Zone ID:")[1].strip()
-            
-            return face_id, zone_id, reply_mailbox
-            
-        except (IndexError, ValueError) as e:
-            this_actor.error(f"Failed to parse query: {query}. Error: {e}")
-            # Valori default în caz de eroare
-            return "unknown_face", "unknown_zone", self.processing_mailbox_name
-    
+        this_actor.info(f"DatabaseActor initialized. Listening on '{self.my_mailbox_name}'.")
+
     def init_access_rules(self):
-        """
-        Inițializează regulile de acces pentru diferite zone și utilizatori.
-        """
-        # Structura de reguli: {zone_id: {user_type_prefix: is_authorized}}
+        """Initializes the simulated access rules database."""
+        # Your existing access_rules and special_users structure is good.
+        # Ensure it covers all zones you plan to simulate (zone_1, zone_2, zone_3).
         self.access_rules = {
             "zone_1": {
-                "zone1_employee_": True,
-                "zone1_visitor_": False,
-                "zone1_manager_": True,
-                "zone1_security_": True,
-                "unknown_person_": False,
-                # Default pentru alte tipuri
+                "zone1_employee_": True, "zone1_visitor_": False, "zone1_manager_": True,
+                "zone1_security_": True, "unknown_person_": False, "unknown_face": False,
+                "low_confidence_face": False, "default": False
+            },
+            "zone_2": { # Example rules for zone_2
+                "zone2_employee_": True, "zone2_manager_": True, "zone1_security_": True, # Security might have wider access
+                "unknown_person_": False, "unknown_face": False, "low_confidence_face": False,
                 "default": False
             },
-            # Regulă default pentru zone necunoscute
-            "default": {
+            "zone_3": { # Example rules for zone_3
+                "zone3_employee_": True, "zone3_security_": True, "zone1_manager_": True, # Managers might have wider access
+                "unknown_person_": False, "unknown_face": False, "low_confidence_face": False,
                 "default": False
-            }
+            },
+            "default": {"default": False} # Default for unknown zones
         }
-        
-        # Liste de utilizatori specifici cu acces special (override)
         self.special_users = {
-            # Utilizatori cu acces blocat în toate zonele (ex: foști angajați)
-            "blacklist": [
-                "zone1_employee_042",
-                "zone1_visitor_013"
-            ],
-            # Utilizatori cu acces în toate zonele (ex: CEO, șefi securitate)
-            "whitelist": [
-                "zone1_manager_001",
-                "zone1_security_007"
-            ]
+            "blacklist": ["zone1_employee_042", "zone1_visitor_013"],
+            "whitelist": ["zone1_manager_001", "zone1_security_007"] # These users are authorized everywhere
         }
-    
-    def check_authorization(self, face_id, zone_id):
-        """
-        Verifică dacă un utilizator (face_id) are acces la o zonă specifică.
-        """
-        # Verifică liste speciale mai întâi
-        if face_id in self.special_users["blacklist"]:
-            this_actor.info(f"Access DENIED for {face_id} (blacklisted user)")
+        this_actor.info("Access rules initialized.")
+
+    def check_authorization(self, face_id: str, zone_id: str) -> bool:
+        """Checks if a face_id is authorized for a given zone_id."""
+        if not face_id: # Handle None or empty face_id
+            this_actor.info(f"Authorization check for EMPTY FaceID in Zone '{zone_id}' -> DENIED (default)")
             return False
             
+        # 1. Check special lists (blacklist overrides whitelist if user is on both, though unlikely)
+        if face_id in self.special_users["blacklist"]:
+            this_actor.info(f"Access DENIED for '{face_id}' in Zone '{zone_id}' (blacklisted).")
+            return False
         if face_id in self.special_users["whitelist"]:
-            this_actor.info(f"Access GRANTED for {face_id} (whitelisted user)")
+            this_actor.info(f"Access GRANTED for '{face_id}' in Zone '{zone_id}' (whitelisted).")
             return True
         
-        # Verifică regulile pentru zonă
-        zone_rules = self.access_rules.get(zone_id, self.access_rules["default"])
+        # 2. Get rules for the specific zone, or default zone rules if zone not found
+        zone_specific_rules = self.access_rules.get(zone_id, self.access_rules["default"])
         
-        # Caută prefixul potrivit pentru face_id
-        for prefix, is_authorized in zone_rules.items():
+        # 3. Check against prefixes in the zone rules
+        for prefix, is_authorized in zone_specific_rules.items():
             if prefix != "default" and face_id.startswith(prefix):
-                if is_authorized:
-                    this_actor.info(f"Access GRANTED for {face_id} in zone {zone_id} (rule: {prefix})")
-                else:
-                    this_actor.info(f"Access DENIED for {face_id} in zone {zone_id} (rule: {prefix})")
+                log_status = "GRANTED" if is_authorized else "DENIED"
+                this_actor.info(f"Access {log_status} for '{face_id}' in Zone '{zone_id}' (rule: '{prefix}').")
                 return is_authorized
-        
-        # Dacă nu a găsit nicio regulă specifică, aplică regula default pentru zonă
-        this_actor.info(f"No specific rule found for {face_id} in {zone_id}. Using default: {zone_rules['default']}")
-        return zone_rules["default"]
-    
-    # Implementare pentru compatibilitate cu versiunea anterioară
-    # def simulate_lookup(self, face_id=None, zone_id=None):
-    #     """
-    #     Simulează căutarea în baza de date.
-        
-    #     Parametri:
-    #     face_id - ID-ul facial pentru verificare (opțional)
-    #     zone_id - ID-ul zonei pentru verificare (opțional)
-        
-    #     Returnează:
-    #     - Dacă face_id și zone_id sunt specificate: boolean pentru autorizare
-    #     - Dacă doar face_id este specificat: dicționar cu zone autorizate
-    #     - Dacă nu este specificat nimic: listă de ID-uri faciale din baza de date
-    #     """
-    #     # Inițializăm regulile de acces dacă este nevoie
-    #     if not hasattr(self, 'access_rules') or not hasattr(self, 'special_users'):
-    #         self.init_access_rules()
-        
-    #     # Lista completă de ID-uri faciale disponibile în baza de date
-    #     available_face_ids = {
-    #         # Angajați Zone 1
-    #         "zone1_employee_001": {"name": "John Smith", "role": "Engineer", "zones": ["zone_1"]},
-    #         "zone1_employee_042": {"name": "Maria Rodriguez", "role": "Technician", "zones": [], "blacklisted": True}, 
-    #         "zone1_employee_108": {"name": "David Chen", "role": "Engineer", "zones": ["zone_1", "zone_2"]},
-    #         "zone1_employee_215": {"name": "Sarah Johnson", "role": "Analyst", "zones": ["zone_1", "zone_3"]},
-            
-    #         # Vizitatori Zone 1
-    #         "zone1_visitor_002": {"name": "Alex Brown", "role": "Contractor", "zones": []},
-    #         "zone1_visitor_013": {"name": "Elena Popescu", "role": "Vendor", "zones": [], "blacklisted": True},
-    #         "zone1_visitor_054": {"name": "James Wilson", "role": "Client", "zones": []},
-            
-    #         # Manageri Zone 1
-    #         "zone1_manager_001": {"name": "Michael Taylor", "role": "Department Head", "zones": ["zone_1", "zone_2", "zone_3"], "whitelisted": True},
-    #         "zone1_manager_003": {"name": "Lisa Wong", "role": "Project Manager", "zones": ["zone_1", "zone_2"]},
-    #         "zone1_manager_007": {"name": "Robert Garcia", "role": "Team Lead", "zones": ["zone_1"]},
-            
-    #         # Personal de securitate Zone 1
-    #         "zone1_security_007": {"name": "Chris Evans", "role": "Security Chief", "zones": ["zone_1", "zone_2", "zone_3", "zone_4"], "whitelisted": True},
-    #         "zone1_security_012": {"name": "Omar Hassan", "role": "Guard", "zones": ["zone_1", "zone_4"]},
-            
-    #         # ID-uri pentru diferite zone
-    #         "zone2_employee_003": {"name": "Fatima Ali", "role": "Researcher", "zones": ["zone_2"]},
-    #         "zone3_manager_002": {"name": "Thomas Lee", "role": "Director", "zones": ["zone_1", "zone_3"]},
-            
-    #         # Placeholder pentru persoane necunoscute
-    #         "unknown_face": {"name": "Unknown Person", "role": "Unknown", "zones": []}
-    #     }
-        
-    #     # Simulăm costul computațional de căutare în baza de date
-    #     lookup_flops = 2000
-    #     this_actor.execute(lookup_flops)
-        
-    #     # Cazul 1: Returnează lista de ID-uri dacă nu sunt specificate parametrele
-    #     if face_id is None and zone_id is None:
-    #         return list(available_face_ids.keys())
-        
-    #     # Cazul 2: Dacă face_id nu există în baza de date, considerăm "unknown_face"
-    #     if face_id not in available_face_ids and face_id != "unknown_face":
-    #         this_actor.info(f"Face ID '{face_id}' not found in database, treating as unknown")
-    #         face_id = "unknown_face"
-        
-    #     # Cazul 3: Verifică autorizarea pentru o zonă specifică
-    #     if face_id is not None and zone_id is not None:
-    #         # 1. Verifică mai întâi blacklist/whitelist (reguli speciale)
-    #         person_info = available_face_ids.get(face_id, available_face_ids["unknown_face"])
-            
-    #         if person_info.get("blacklisted", False):
-    #             this_actor.info(f"Access DENIED for {face_id} (blacklisted user)")
-    #             return False
                 
-    #         if person_info.get("whitelisted", False):
-    #             this_actor.info(f"Access GRANTED for {face_id} (whitelisted user)")
-    #             return True
-            
-    #         # 2. Verifică accesul bazat pe zonă
-    #         if zone_id in person_info["zones"]:
-    #             this_actor.info(f"Access GRANTED for {face_id} in {zone_id} (zone in allowed list)")
-    #             return True
-            
-    #         # 3. Verifică reguli bazate pe tipul utilizatorului și zonă
-    #         # Extrage prefixul din face_id (ex: "zone1_employee_" din "zone1_employee_001")
-    #         prefix_parts = face_id.split("_")
-    #         if len(prefix_parts) >= 2:
-    #             user_type = f"{prefix_parts[0]}_{prefix_parts[1]}_"
+        # 4. If no specific prefix matched, apply the zone's default rule
+        default_auth = zone_specific_rules.get("default", False)
+        log_status = "GRANTED" if default_auth else "DENIED"
+        this_actor.info(f"No specific rule for '{face_id}' in Zone '{zone_id}'. Applying zone default: {log_status}.")
+        return default_auth
+
+    def __call__(self):
+        this_actor.info(f"Started. Waiting for queries on '{self.my_mailbox_name}'.")
+        while True:
+            try:
+                # Expecting a dictionary query from ProcessingActorCPU
+                query_message = self.mailbox.get()
+
+                if not isinstance(query_message, dict) or query_message.get("type") != "auth_query":
+                    this_actor.warning(f"Received malformed or unexpected query type: {query_message}")
+                    continue
+
+                face_id = query_message.get("face_id")
+                zone_id = query_message.get("zone_id")
+                reply_to_mailbox_name = query_message.get("reply_to_mailbox")
+
+                if not all([face_id, zone_id, reply_to_mailbox_name]):
+                    this_actor.error(f"Incomplete query received: {query_message}. Missing required fields.")
+                    # Optionally send an error response back if reply_to_mailbox_name is present
+                    if reply_to_mailbox_name:
+                        try:
+                            error_response = {"type": "auth_result", "status": "Error_BadRequest", "queried_face_id": face_id, "queried_zone_id": zone_id}
+                            Mailbox.by_name(reply_to_mailbox_name).put(error_response, 100)
+                        except SimgridError as e_err_reply:
+                            this_actor.error(f"Failed to send error reply for bad query to {reply_to_mailbox_name}: {e_err_reply}")
+                    continue
                 
-    #             # Reguli de acces bazate pe tipul utilizatorului
-    #             access_by_type = {
-    #                 "zone1_employee_": ["zone_1"],
-    #                 "zone1_manager_": ["zone_1", "zone_2"],
-    #                 "zone1_security_": ["zone_1", "zone_2", "zone_4"],
-    #                 "zone1_visitor_": [],  # Vizitatorii nu au acces implicit
-    #                 "zone2_employee_": ["zone_2"],
-    #                 "zone3_manager_": ["zone_3"],
-    #                 "unknown_": []  # Persoanele necunoscute nu au acces
-    #             }
+                this_actor.info(f"Received query: FaceID='{face_id}', Zone='{zone_id}'. Reply to='{reply_to_mailbox_name}'.")
+
+                # Simulate DB lookup and rule processing cost
+                # You can add / self.query_parallelism_factor here if defined and desired
+                this_actor.execute(self.db_lookup_flops) 
+
+                authorized = self.check_authorization(face_id, zone_id)
                 
-    #             allowed_zones = access_by_type.get(user_type, [])
-    #             if zone_id in allowed_zones:
-    #                 this_actor.info(f"Access GRANTED for {face_id} in {zone_id} (rule-based access)")
-    #                 return True
-            
-    #         # 4. Reguli temporale (simulăm în funcție de ora din simulare)
-    #         current_time = Engine.clock % 86400  # Secunde într-o zi (24h)
-    #         is_working_hours = 8*3600 <= current_time <= 20*3600  # Între 8:00 și 20:00
-            
-    #         # Doar angajații și managerii au acces în afara orelor de program
-    #         if not is_working_hours and not any(face_id.startswith(prefix) for prefix in ["zone1_employee_", "zone1_manager_", "zone1_security_"]):
-    #             this_actor.info(f"Access DENIED for {face_id} in {zone_id} (outside working hours)")
-    #             return False
-            
-    #         # 5. Reguli speciale pentru zone specifice
-    #         if zone_id == "zone_1":
-    #             # În zona 1, toți angajații, managerii și personalul de securitate au acces
-    #             if any(face_id.startswith(prefix) for prefix in ["zone1_employee_", "zone1_manager_", "zone1_security_"]):
-    #                 this_actor.info(f"Access GRANTED for {face_id} in {zone_id} (employee in zone_1)")
-    #                 return True
-            
-    #         # 6. Default: acces respins
-    #         this_actor.info(f"Access DENIED for {face_id} in {zone_id} (default deny)")
-    #         return False
-        
-    #     # Cazul 4: Returnează zonele autorizate pentru un ID facial
-    #     elif face_id is not None:
-    #         person_info = available_face_ids.get(face_id, available_face_ids["unknown_face"])
-            
-    #         # Verifică dacă persoana este blacklisted
-    #         if person_info.get("blacklisted", False):
-    #             this_actor.info(f"User {face_id} is blacklisted, no zones accessible")
-    #             return []
-            
-    #         # Verifică dacă persoana este whitelisted
-    #         if person_info.get("whitelisted", False):
-    #             all_zones = ["zone_1", "zone_2", "zone_3", "zone_4"]
-    #             this_actor.info(f"User {face_id} is whitelisted, access to all zones")
-    #             return all_zones
-            
-    #         # Returnează zonele autorizate
-    #         this_actor.info(f"User {face_id} has access to zones: {person_info['zones']}")
-    #         return person_info["zones"]
+                response_status = "Authorized" if authorized else "Unauthorized"
+                response_payload = {
+                    "type": "auth_result", # Important for ProcessingActorCPU to identify the message
+                    "status": response_status,
+                    "queried_face_id": face_id, # Echoing back for context
+                    "queried_zone_id": zone_id
+                }
+                
+                try:
+                    reply_mailbox = Mailbox.by_name(reply_to_mailbox_name)
+                    # Size of the response dictionary (SimGrid will estimate if payload is object)
+                    # Let's use a small fixed size for this structured message.
+                    reply_mailbox.put(response_payload, 256) 
+                    this_actor.info(f"Sent response '{response_status}' for FaceID:'{face_id}', Zone:'{zone_id}' to '{reply_to_mailbox_name}'.")
+                except SimgridError as e_reply:
+                    this_actor.error(f"Failed to get reply mailbox '{reply_to_mailbox_name}' or send reply: {e_reply}")
+
+            except SimgridError as e:
+                this_actor.error(f"DatabaseActor error in main loop: {e}")
+                break # Exit loop on SimgridError
+            except Exception as e_gen: # Catch any other unexpected errors
+                this_actor.error(f"DatabaseActor UNEXPECTED error in main loop: {e_gen}")
+                # break or continue
+        this_actor.info("DatabaseActor stopping.")
