@@ -6,7 +6,7 @@
 # Simulate logging/displaying the alert: Define cost (flops_alert_log). Execute computation (simgrid::s4u::this_actor::execute(flops_alert_log)).
 # (Optional) Print a message to the simulation output indicating an alert was received.
 
-from simgrid import Mailbox, this_actor, SimgridError, Engine
+from simgrid import Mailbox, this_actor, Engine
 
 class AlertActor:
     def __init__(self, alert_server: str):
@@ -30,6 +30,6 @@ class AlertActor:
                 flops_alert_log = 500
                 this_actor.execute(flops_alert_log)
                 
-            except SimgridError as e:
+            except Exception as e:
                 this_actor.error(f"Error while processing alert: {e}")
                 break

@@ -1,5 +1,5 @@
 # In APP/actors/processing_cpu_actor.py
-from simgrid import Mailbox, this_actor, SimgridError, Engine, Host # Host might not be needed here
+from simgrid import Mailbox, this_actor, Engine, Host # Host might not be needed here
 import random # If you keep some simulation logic here
 
 class ProcessingActorCPU: # Renamed from ProcessingActor in your main.py import
@@ -152,18 +152,18 @@ class ProcessingActorCPU: # Renamed from ProcessingActor in your main.py import
                 # 5. Signal Ready to Dispatcher
                 self._signal_ready_to_dispatcher()
 
-            except SimgridError as e:
+            except Exception as e:
                 this_actor.error(f"({self.name}) SimgridError in main loop: {e}. Signaling ready.")
                 try:
                     self._signal_ready_to_dispatcher() # Attempt to become ready again
-                except SimgridError as sig_e:
+                except Exception as sig_e:
                      this_actor.error(f"({self.name}) Failed to signal ready after error: {sig_e}")
                 # break # Consider if actor should stop on error or try to continue
             except Exception as e_gen:
                 this_actor.error(f"({self.name}) GENERIC ERROR in main loop: {e_gen}. Signaling ready.")
                 try:
                     self._signal_ready_to_dispatcher()
-                except SimgridError as sig_e:
+                except Exception as sig_e:
                      this_actor.error(f"({self.name}) Failed to signal ready after generic error: {sig_e}")
                 # break
 
@@ -184,5 +184,5 @@ class ProcessingActorCPU: # Renamed from ProcessingActor in your main.py import
         try:
             this_actor.execute(self.alert_setup_flops)
             self.alert_mailbox.put(alert_data, 2048) # Example alert size
-        except SimgridError as e:
+        except Exception as e:
             this_actor.error(f"({self.name}) Failed to send alert: {e}")

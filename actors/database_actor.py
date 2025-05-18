@@ -1,5 +1,5 @@
 # APP/actors/database_actor.py
-from simgrid import Mailbox, this_actor, SimgridError, Engine # Host might not be needed unless for dynamic speed adjust
+from simgrid import Mailbox, this_actor, Engine # Host might not be needed unless for dynamic speed adjust
 import random
 
 class DatabaseActor:
@@ -10,7 +10,7 @@ class DatabaseActor:
         self.my_mailbox_name = my_mailbox_name
         try:
             self.mailbox = Mailbox.by_name(self.my_mailbox_name)
-        except SimgridError as e:
+        except Exception as e:
             this_actor.error(f"Failed to get own mailbox '{self.my_mailbox_name}'. Actor cannot start.")
             raise e
         
@@ -104,7 +104,7 @@ class DatabaseActor:
                         try:
                             error_response = {"type": "auth_result", "status": "Error_BadRequest", "queried_face_id": face_id, "queried_zone_id": zone_id}
                             Mailbox.by_name(reply_to_mailbox_name).put(error_response, 100)
-                        except SimgridError as e_err_reply:
+                        except Exception as e_err_reply:
                             this_actor.error(f"Failed to send error reply for bad query to {reply_to_mailbox_name}: {e_err_reply}")
                     continue
                 
@@ -130,10 +130,10 @@ class DatabaseActor:
                     # Let's use a small fixed size for this structured message.
                     reply_mailbox.put(response_payload, 256) 
                     this_actor.info(f"Sent response '{response_status}' for FaceID:'{face_id}', Zone:'{zone_id}' to '{reply_to_mailbox_name}'.")
-                except SimgridError as e_reply:
+                except Exception as e_reply:
                     this_actor.error(f"Failed to get reply mailbox '{reply_to_mailbox_name}' or send reply: {e_reply}")
 
-            except SimgridError as e:
+            except Exception as e:
                 this_actor.error(f"DatabaseActor error in main loop: {e}")
                 break # Exit loop on SimgridError
             except Exception as e_gen: # Catch any other unexpected errors

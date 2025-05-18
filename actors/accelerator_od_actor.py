@@ -1,4 +1,4 @@
-from simgrid import Mailbox, this_actor, SimgridError, Engine
+from simgrid import Mailbox, this_actor, Engine
 
 class AcceleratorActorOD:
     def __init__(self, name: str, my_mailbox_name: str):
@@ -63,7 +63,7 @@ class AcceleratorActorOD:
                 reply_mailbox.put(response_payload, 1024) # Small size for result message
                 this_actor.info(f"({self.name}) Sent OD result back to '{reply_to_mb_name}'.")
 
-            except SimgridError as e:
+            except Exception as e:
                 this_actor.error(f"({self.name}) OD Accelerator error: {e}")
                 break # Exit loop on SimgridError
         this_actor.info(f"({self.name}) OD Accelerator stopping.")

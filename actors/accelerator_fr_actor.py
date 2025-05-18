@@ -1,4 +1,4 @@
-from simgrid import Mailbox, this_actor, SimgridError, Engine
+from simgrid import Mailbox, this_actor, Engine
 
 class AcceleratorActorFR:
     def __init__(self, name: str, my_mailbox_name: str):
@@ -56,7 +56,7 @@ class AcceleratorActorFR:
                 reply_mailbox.put(response_payload, 512) # Small size for result message
                 this_actor.info(f"({self.name}) Sent FR result ('{face_id}') back to '{reply_to_mb_name}'.")
 
-            except SimgridError as e:
+            except Exception as e:
                 this_actor.error(f"({self.name}) FR Accelerator error: {e}")
                 break
         this_actor.info(f"({self.name}) FR Accelerator stopping.")

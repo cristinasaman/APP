@@ -1,5 +1,5 @@
 # dispatcher_actor.py (or add to your main actor file)
-from simgrid import Actor, Engine, Host, Mailbox, this_actor, SimgridError # Engine not strictly needed here
+from simgrid import Actor, Engine, Host, Mailbox, this_actor # Engine not strictly needed here
 import collections # For deque
 
 class DispatcherActor:
@@ -44,7 +44,7 @@ class DispatcherActor:
 
                 self._try_dispatch_tasks()
 
-            except SimgridError as e:
+            except Exception as e:
                 this_actor.error(f"Error in main loop: {e}")
                 break
         this_actor.info("Stopping.")
@@ -73,7 +73,7 @@ class DispatcherActor:
                 cam_info = task_to_dispatch.get('camera_info', {})
                 cam_id = cam_info.get('id', 'UnknownCam')
                 this_actor.info(f"Dispatched task (from cam: {cam_id}) to worker '{worker_mailbox_name}'. Tasks left: {len(self.task_queue)}. Workers avail: {len(self.available_workers_queue)}")
-            except SimgridError as e:
+            except Exception as e:
                 this_actor.error(f"Failed to dispatch task to worker '{worker_mailbox_name}': {e}. Re-queuing worker and task.")
                 self.available_workers_queue.append(worker_mailbox_name)
                 self.task_queue.appendleft(task_to_dispatch)
