@@ -3,9 +3,12 @@ from simgrid import Mailbox, this_actor, Engine, Host # Host might not be needed
 import random # If you keep some simulation logic here
 
 class ProcessingActorCPU: # Renamed from ProcessingActor in your main.py import
-    def __init__(self, name: str, my_mailbox_name: str, 
-                 dispatcher_mailbox_name: str, database_mailbox_name: str, alert_mailbox_name: str,
-                 zone_id: str, # zone_id will now come from the task, not init
+    def __init__(self, name: str, 
+                 my_mailbox_name: str, 
+                 dispatcher_mailbox_name: str, 
+                 database_mailbox_name: str, 
+                 alert_mailbox_name: str,
+                 zone_id: str,
                  od_accelerator_mb_name: str, fr_accelerator_mb_name: str):
         """
         name: Name of this CPU processing actor.
@@ -16,6 +19,7 @@ class ProcessingActorCPU: # Renamed from ProcessingActor in your main.py import
         od_accelerator_mb_name: Mailbox of its dedicated OD accelerator.
         fr_accelerator_mb_name: Mailbox of its dedicated FR accelerator.
         """
+        
         self.name = name
         self.my_mailbox_name = my_mailbox_name
         self.my_mailbox = Mailbox.by_name(my_mailbox_name) # Own mailbox
