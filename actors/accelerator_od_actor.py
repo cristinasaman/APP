@@ -1,5 +1,5 @@
 from simgrid import Mailbox, this_actor, Engine
-import random
+import random, openpyxl, os
 
 class AcceleratorActorOD:
     def __init__(self, name: str, my_mailbox_name: str):
@@ -60,6 +60,7 @@ class AcceleratorActorOD:
                 this_actor.error(f"({self.name}) OD Accelerator error: {e}")
                 break
 
+        self._write_metrics_to_excel()
         this_actor.info(f"({self.name}) OD Accelerator stopping.")
         
     def _calculate_flops_od(self, frame_size_bytes):
@@ -76,3 +77,29 @@ class AcceleratorActorOD:
                            random.randint(100, 200), random.randint(100, 200)]
             
         return {"person_detected": person_detected, "coordinates": coordinates}        
+    
+    def _write_metrics_to_excel(self):
+        filename = "simulation_metrics.xlsx"
+        sheet_name = "AcceleratorODMetrics"
+
+        if not os.path.exists(filename):
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = sheet_name
+            ws.append(["Actor", "Computation Time (s)", "Communication Wait Time (s)"])
+        else:
+            wb = openpyxl.load_workbook(filename)
+            if sheet_name not in wb.sheetnames:
+                ws = wb.create_sheet(title=sheet_name)
+                ws.append(["Actor", "Computation Time (s)", "Communication Wait Time (s)"])
+            else:
+                ws = wb[sheet_name]
+
+        ws.append([
+            f"{self.name}", 
+            round(self.total_computation_time , 6), 
+            round(self.total_wait_time_for_task , 6),
+            round(self.total_communication_send_time , 6)
+        ])
+
+        wb.save(filename)            

@@ -1,5 +1,5 @@
 from simgrid import Mailbox, this_actor, Engine 
-import random
+import openpyxl, os
 
 class DatabaseActor:
     def __init__(self, my_mailbox_name: str): 
@@ -14,12 +14,81 @@ class DatabaseActor:
             this_actor.error(f"Failed to get own mailbox '{self.my_mailbox_name}'. Actor cannot start.")
             raise e
         
-        self.db_lookup_flops = 200e6 
+        self.db_lookup_flops = 200e6  
+
+        self.total_computation_time = 0.0
+        self.total_wait_time_for_query = 0.0
+        self.total_communication_send_time = 0.0 
 
         self.init_access_rules() 
         
         this_actor.info(f"DatabaseActor initialized. Listening on '{self.my_mailbox_name}'.")
 
+    def __call__(self):
+        this_actor.info(f"Started. Waiting for queries on '{self.my_mailbox_name}'.")
+        while True:
+            try:
+                time_before_get = Engine.clock
+                query_message = self.mailbox.get()
+
+                if not isinstance(query_message, dict) or query_message.get("type") != "auth_query":
+                    this_actor.warning(f"Received malformed or unexpected query type: {query_message}")
+                    continue
+
+                self.total_wait_time_for_query += (Engine.clock - time_before_get)
+
+                face_id = query_message.get("face_id")
+                zone_id = query_message.get("zone_id")
+                reply_to_mailbox_name = query_message.get("reply_to_mailbox")
+
+                if not all([face_id, zone_id, reply_to_mailbox_name]):
+                    this_actor.error(f"Incomplete query received: {query_message}. Missing required fields.")
+                    if reply_to_mailbox_name:
+                        try:
+                            error_response = {"type": "auth_result", "status": "Error_BadRequest", "queried_face_id": face_id, "queried_zone_id": zone_id}
+                            Mailbox.by_name(reply_to_mailbox_name).put(error_response, 100)
+                        except Exception as e_err_reply:
+                            this_actor.error(f"Failed to send error reply for bad query to {reply_to_mailbox_name}: {e_err_reply}")
+                    continue
+                
+                this_actor.info(f"Received query: FaceID='{face_id}', Zone='{zone_id}'. Reply to='{reply_to_mailbox_name}'.")
+                
+                time_before_exec = Engine.clock
+                this_actor.execute(self.db_lookup_flops) 
+                self.total_computation_time += (Engine.clock - time_before_exec)
+
+                authorized = self.check_authorization(face_id, zone_id)
+                
+                response_status = "Authorized" if authorized else "Unauthorized"
+                response_payload = {
+                    "type": "auth_result",
+                    "status": response_status,
+                    "queried_face_id": face_id, 
+                    "queried_zone_id": zone_id
+                }
+                
+                try:
+                    reply_mailbox = Mailbox.by_name(reply_to_mailbox_name)
+
+                    response_message_size_bytes = 256 
+                    
+                    time_before_put = Engine.clock
+                    reply_mailbox.put(response_payload, response_message_size_bytes) 
+                    self.total_communication_send_time += (Engine.clock - time_before_put)
+                    
+                    this_actor.info(f"Sent response '{response_status}' for FaceID:'{face_id}', Zone:'{zone_id}' to '{reply_to_mailbox_name}'.")
+                except Exception as e_reply:
+                    this_actor.error(f"Failed to get reply mailbox '{reply_to_mailbox_name}' or send reply: {e_reply}")
+
+            except Exception as e:
+                this_actor.error(f"DatabaseActor error in main loop: {e}")
+                break 
+            except Exception as e_gen: 
+                this_actor.error(f"DatabaseActor UNEXPECTED error in main loop: {e_gen}")
+                
+        self._write_metrics_to_excel()        
+        this_actor.info("DatabaseActor stopping.")
+        
     def init_access_rules(self):
         self.access_rules = {
             "zone_1": {
@@ -70,56 +139,31 @@ class DatabaseActor:
         default_auth = zone_specific_rules.get("default", False)
         log_status = "GRANTED" if default_auth else "DENIED"
         this_actor.info(f"No specific rule for '{face_id}' in Zone '{zone_id}'. Applying zone default: {log_status}.")
-        return default_auth
+        
+        return default_auth        
+    
+    def _write_metrics_to_excel(self):
+        filename = "simulation_metrics.xlsx"
+        sheet_name = "DatabaseMetrics"
 
-    def __call__(self):
-        this_actor.info(f"Started. Waiting for queries on '{self.my_mailbox_name}'.")
-        while True:
-            try:
-                query_message = self.mailbox.get()
+        if not os.path.exists(filename):
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = sheet_name
+            ws.append(["Actor", "Computation Time (s)", "Communication Wait Time (s)"])
+        else:
+            wb = openpyxl.load_workbook(filename)
+            if sheet_name not in wb.sheetnames:
+                ws = wb.create_sheet(title=sheet_name)
+                ws.append(["Actor", "Computation Time (s)", "Communication Wait Time (s)"])
+            else:
+                ws = wb[sheet_name]
 
-                if not isinstance(query_message, dict) or query_message.get("type") != "auth_query":
-                    this_actor.warning(f"Received malformed or unexpected query type: {query_message}")
-                    continue
+        ws.append([
+            f"{self.my_mailbox_name}", 
+            round(self.total_computation_time , 6), 
+            round(self.total_wait_time_for_query , 6),
+            round(self.total_communication_send_time , 6)
+        ])
 
-                face_id = query_message.get("face_id")
-                zone_id = query_message.get("zone_id")
-                reply_to_mailbox_name = query_message.get("reply_to_mailbox")
-
-                if not all([face_id, zone_id, reply_to_mailbox_name]):
-                    this_actor.error(f"Incomplete query received: {query_message}. Missing required fields.")
-                    if reply_to_mailbox_name:
-                        try:
-                            error_response = {"type": "auth_result", "status": "Error_BadRequest", "queried_face_id": face_id, "queried_zone_id": zone_id}
-                            Mailbox.by_name(reply_to_mailbox_name).put(error_response, 100)
-                        except Exception as e_err_reply:
-                            this_actor.error(f"Failed to send error reply for bad query to {reply_to_mailbox_name}: {e_err_reply}")
-                    continue
-                
-                this_actor.info(f"Received query: FaceID='{face_id}', Zone='{zone_id}'. Reply to='{reply_to_mailbox_name}'.")
-                this_actor.execute(self.db_lookup_flops) 
-
-                authorized = self.check_authorization(face_id, zone_id)
-                
-                response_status = "Authorized" if authorized else "Unauthorized"
-                response_payload = {
-                    "type": "auth_result",
-                    "status": response_status,
-                    "queried_face_id": face_id, 
-                    "queried_zone_id": zone_id
-                }
-                
-                try:
-                    reply_mailbox = Mailbox.by_name(reply_to_mailbox_name)
-
-                    reply_mailbox.put(response_payload, 256) 
-                    this_actor.info(f"Sent response '{response_status}' for FaceID:'{face_id}', Zone:'{zone_id}' to '{reply_to_mailbox_name}'.")
-                except Exception as e_reply:
-                    this_actor.error(f"Failed to get reply mailbox '{reply_to_mailbox_name}' or send reply: {e_reply}")
-
-            except Exception as e:
-                this_actor.error(f"DatabaseActor error in main loop: {e}")
-                break 
-            except Exception as e_gen: 
-                this_actor.error(f"DatabaseActor UNEXPECTED error in main loop: {e_gen}")
-        this_actor.info("DatabaseActor stopping.")
+        wb.save(filename)                

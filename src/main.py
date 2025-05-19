@@ -26,15 +26,16 @@ if __name__ == '__main__':
         sys.exit(1)
 
     FRAME_SIZE_BYTES = 1024 * 1024      
-    CAPTURE_INTERVAL = 0.1           
-    MAX_FRAMES_PER_CAMERA = 100         
+    CAPTURE_INTERVAL = 0.05          
+    MAX_FRAMES_PER_CAMERA = 1000       
 
     DISPATCHER_MB_NAME = "dispatcher_main_mb"
     DB_MB_NAME = "db_server_main_mb"
     ALERT_MB_NAME = "alert_server_main_mb"
 
     CAMERAS_PER_ZONE = { "zone_1": 4, "zone_2": 2, "zone_3": 3 }
-    PROCESSING_UNITS_PER_ZONE = { "zone_1": 4, "zone_2": 2, "zone_3": 2 } 
+    SEQUENTIAL_MODE = False
+    PROCESSING_UNITS_PER_ZONE = { "zone_1": 1 if SEQUENTIAL_MODE else 8 , "zone_2": 2, "zone_3": 2 } 
 
     CORE_ROUTER_HOST = "core_router"
     DB_SERVER_HOST = "database_server"

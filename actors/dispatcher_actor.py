@@ -1,5 +1,7 @@
 from simgrid import Mailbox, this_actor, Engine
 import collections
+import openpyxl
+import os
 
 class DispatcherActor:
     def __init__(self, mailbox_name: str):
@@ -64,8 +66,10 @@ class DispatcherActor:
             except Exception as e:
                 this_actor.error(f"Error in main loop: {e}")
                 break
+        
+        # self._write_metrics_to_excel()
             
-        this_actor.info("Stopping.")
+        this_actor.info(f"Dispatcher stopping.")
 
     def _try_dispatch_tasks(self):
         while self.task_queue and self.available_workers_queue:
@@ -91,3 +95,28 @@ class DispatcherActor:
                 self.available_workers_queue.append(worker_mailbox_name)
                 self.task_queue.appendleft(task_to_dispatch)
                 break
+    
+    def _write_metrics_to_excel(self):
+        filename = "simulation_metrics.xlsx"
+        sheet_name = "DispatcherMetrics"
+
+        if not os.path.exists(filename):
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = sheet_name
+            ws.append(["Actor", "Computation Time (s)", "Communication Wait Time (s)"])
+        else:
+            wb = openpyxl.load_workbook(filename)
+            if sheet_name not in wb.sheetnames:
+                ws = wb.create_sheet(title=sheet_name)
+                ws.append(["Actor", "Computation Time (s)", "Communication Wait Time (s)"])
+            else:
+                ws = wb[sheet_name]
+
+        ws.append([
+            f"{this_actor.name}", 
+            round(self.total_wait_time_on_get, 6), 
+            round(self.total_dispatch_computation_time, 6)
+        ])
+
+        wb.save(filename)        

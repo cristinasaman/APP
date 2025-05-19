@@ -1,5 +1,5 @@
 from simgrid import Mailbox, this_actor, Engine
-import random
+import random, openpyxl, os
 
 class AcceleratorActorFR:
     def __init__(self, name: str, my_mailbox_name: str):
@@ -66,6 +66,8 @@ class AcceleratorActorFR:
                 this_actor.error(f"({self.name}) FR Accelerator error: {e}")
                 break
 
+        self._write_metrics_to_excel()      
+             
         this_actor.info(f"({self.name}) FR Accelerator stopping.")
  
     def _calculate_flops_fr(self, face_region_size_bytes):
@@ -79,3 +81,28 @@ class AcceleratorActorFR:
         
         return random.choice(["employee_123", "employee_456", "visitor_789", "unknown_face"])
         
+    def _write_metrics_to_excel(self):
+        filename = "simulation_metrics.xlsx"
+        sheet_name = "AcceleratorFRMetrics"
+
+        if not os.path.exists(filename):
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = sheet_name
+            ws.append(["Actor", "Computation Time (s)", "Communication Wait Time (s)"])
+        else:
+            wb = openpyxl.load_workbook(filename)
+            if sheet_name not in wb.sheetnames:
+                ws = wb.create_sheet(title=sheet_name)
+                ws.append(["Actor", "Computation Time (s)", "Communication Wait Time (s)"])
+            else:
+                ws = wb[sheet_name]
+
+        ws.append([
+            f"{self.name}", 
+            round(self.total_computation_time , 6), 
+            round(self.total_wait_time_for_task , 6),
+            round(self.total_communication_send_time , 6)
+        ])
+
+        wb.save(filename)            

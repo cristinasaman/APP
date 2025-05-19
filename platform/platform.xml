@@ -21,43 +21,84 @@
     <zone id="zone_1" routing="Full">
       <!-- Hosts -->
       <host id="z1_router" speed="1Gf"/> 
-      <host id="z1_camera_host_1" speed="1Gf"/>
-      <host id="z1_camera_host_2" speed="1Gf"/>
-      <host id="z1_camera_host_3" speed="1Gf"/>
-      <host id="z1_camera_host_4" speed="1Gf"/>
+      <host id="z1_camera_host_1" speed="500Mf"/>
+      <host id="z1_camera_host_2" speed="500Mf"/>
+      <host id="z1_camera_host_3" speed="500Mf"/>
+      <host id="z1_camera_host_4" speed="500Mf"/>
+
       <host id="z1_cpu_node_1" speed="500Gf"/>
-      <host id="z1_accelerator_od_1" speed="8Tf"/>
+      <host id="z1_accelerator_od_1" speed="10Tf"/>
       <host id="z1_accelerator_fr_1" speed="5Tf"/>
+
       <host id="z1_cpu_node_2" speed="500Gf"/>
-      <host id="z1_accelerator_od_2" speed="8Tf"/>
+      <host id="z1_accelerator_od_2" speed="10Tf"/>
       <host id="z1_accelerator_fr_2" speed="5Tf"/>
+
       <host id="z1_cpu_node_3" speed="500Gf"/>
-      <host id="z1_accelerator_od_3" speed="8Tf"/>
+      <host id="z1_accelerator_od_3" speed="10Tf"/>
       <host id="z1_accelerator_fr_3" speed="5Tf"/>
+
       <host id="z1_cpu_node_4" speed="500Gf"/>
-      <host id="z1_accelerator_od_4" speed="8Tf"/>
+      <host id="z1_accelerator_od_4" speed="10Tf"/>
       <host id="z1_accelerator_fr_4" speed="5Tf"/>
 
+      <host id="z1_cpu_node_5" speed="500Gf"/>
+      <host id="z1_accelerator_od_5" speed="10Tf"/>
+      <host id="z1_accelerator_fr_5" speed="5Tf"/>
+
+      <host id="z1_cpu_node_6" speed="500Gf"/>
+      <host id="z1_accelerator_od_6" speed="10Tf"/>
+      <host id="z1_accelerator_fr_6" speed="5Tf"/>
+
+      <host id="z1_cpu_node_7" speed="500Gf"/>
+      <host id="z1_accelerator_od_7" speed="10Tf"/>
+      <host id="z1_accelerator_fr_7" speed="5Tf"/>
+
+      <host id="z1_cpu_node_8" speed="500Gf"/>
+      <host id="z1_accelerator_od_8" speed="10Tf"/>
+      <host id="z1_accelerator_fr_8" speed="5Tf"/>
+
       <!-- Links -->
-      <link id="z1_intra_link" bandwidth="1Gbps" latency="1ms"/>
+      <link id="z1_intra_link" bandwidth="10Gbps" latency="1ms"/>
       <link id="z1_pcie_cpu1_od1" bandwidth="256Gbps" latency="0.5us"/>
       <link id="z1_pcie_cpu1_fr1" bandwidth="256Gbps" latency="0.5us"/>
+
       <link id="z1_pcie_cpu2_od2" bandwidth="256Gbps" latency="0.5us"/>
       <link id="z1_pcie_cpu2_fr2" bandwidth="256Gbps" latency="0.5us"/>
+
       <link id="z1_pcie_cpu3_od3" bandwidth="256Gbps" latency="0.5us"/>
       <link id="z1_pcie_cpu3_fr3" bandwidth="256Gbps" latency="0.5us"/>
+
       <link id="z1_pcie_cpu4_od4" bandwidth="256Gbps" latency="0.5us"/>
       <link id="z1_pcie_cpu4_fr4" bandwidth="256Gbps" latency="0.5us"/>
+
+      <link id="z1_pcie_cpu5_od5" bandwidth="256Gbps" latency="0.5us"/>
+      <link id="z1_pcie_cpu5_fr5" bandwidth="256Gbps" latency="0.5us"/>
+
+      <link id="z1_pcie_cpu6_od6" bandwidth="256Gbps" latency="0.5us"/>
+      <link id="z1_pcie_cpu6_fr6" bandwidth="256Gbps" latency="0.5us"/>
+
+      <link id="z1_pcie_cpu7_od7" bandwidth="256Gbps" latency="0.5us"/>
+      <link id="z1_pcie_cpu7_fr7" bandwidth="256Gbps" latency="0.5us"/>
+
+      <link id="z1_pcie_cpu8_od8" bandwidth="256Gbps" latency="0.5us"/>
+      <link id="z1_pcie_cpu8_fr8" bandwidth="256Gbps" latency="0.5us"/>
 
       <!-- Routes -->
       <route src="z1_camera_host_1" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
       <route src="z1_camera_host_2" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
       <route src="z1_camera_host_3" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
       <route src="z1_camera_host_4" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
+
       <route src="z1_cpu_node_1" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
       <route src="z1_cpu_node_2" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
       <route src="z1_cpu_node_3" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
       <route src="z1_cpu_node_4" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
+      <route src="z1_cpu_node_5" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
+      <route src="z1_cpu_node_6" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
+      <route src="z1_cpu_node_7" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
+      <route src="z1_cpu_node_8" dst="z1_router"> <link_ctn id="z1_intra_link"/> </route>
+      
       <route src="z1_cpu_node_1" dst="z1_accelerator_od_1"> <link_ctn id="z1_pcie_cpu1_od1"/> </route>
       <route src="z1_cpu_node_1" dst="z1_accelerator_fr_1"> <link_ctn id="z1_pcie_cpu1_fr1"/> </route>
       <route src="z1_cpu_node_2" dst="z1_accelerator_od_2"> <link_ctn id="z1_pcie_cpu2_od2"/> </route>
@@ -66,6 +107,14 @@
       <route src="z1_cpu_node_3" dst="z1_accelerator_fr_3"> <link_ctn id="z1_pcie_cpu3_fr3"/> </route>
       <route src="z1_cpu_node_4" dst="z1_accelerator_od_4"> <link_ctn id="z1_pcie_cpu4_od4"/> </route>
       <route src="z1_cpu_node_4" dst="z1_accelerator_fr_4"> <link_ctn id="z1_pcie_cpu4_fr4"/> </route>
+      <route src="z1_cpu_node_5" dst="z1_accelerator_od_5"> <link_ctn id="z1_pcie_cpu5_od5"/> </route>
+      <route src="z1_cpu_node_5" dst="z1_accelerator_fr_5"> <link_ctn id="z1_pcie_cpu5_fr5"/> </route>
+      <route src="z1_cpu_node_6" dst="z1_accelerator_od_6"> <link_ctn id="z1_pcie_cpu6_od6"/> </route>
+      <route src="z1_cpu_node_6" dst="z1_accelerator_fr_6"> <link_ctn id="z1_pcie_cpu6_fr6"/> </route>
+      <route src="z1_cpu_node_7" dst="z1_accelerator_od_7"> <link_ctn id="z1_pcie_cpu7_od7"/> </route>
+      <route src="z1_cpu_node_7" dst="z1_accelerator_fr_7"> <link_ctn id="z1_pcie_cpu7_fr7"/> </route>
+      <route src="z1_cpu_node_8" dst="z1_accelerator_od_8"> <link_ctn id="z1_pcie_cpu8_od8"/> </route>
+      <route src="z1_cpu_node_8" dst="z1_accelerator_fr_8"> <link_ctn id="z1_pcie_cpu8_fr8"/> </route>
     </zone>
 
     <!-- Inter-zone link -->
@@ -74,3 +123,5 @@
 
   </zone>
 </platform>
+
+<!-- dispatcher -->

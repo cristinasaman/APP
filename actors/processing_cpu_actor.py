@@ -1,7 +1,10 @@
 from simgrid import Mailbox, this_actor, Engine
+import openpyxl
+import os
 
 class ProcessingActorCPU:
-    def __init__(self, name: str, 
+    def __init__(self, 
+                 name: str, 
                  my_mailbox_name: str, 
                  dispatcher_mailbox_name: str, 
                  database_mailbox_name: str, 
@@ -186,7 +189,10 @@ class ProcessingActorCPU:
                     self._signal_ready_to_dispatcher()
                 except Exception as sig_e:
                      this_actor.error(f"({self.name}) Failed to signal ready after error: {sig_e}")
-
+                     break
+                 
+        self._write_metrics_to_excel()
+            
         this_actor.info(f"({self.name}) CPU part stopping.")
 
     def send_alert(self, original_task_payload, face_id, zone_id, reason):
@@ -210,3 +216,36 @@ class ProcessingActorCPU:
             self.total_comm_time_to_alert += (Engine.clock - time_before_put)
         except Exception as e:
             this_actor.error(f"({self.name}) Failed to send alert: {e}")
+            
+    def _write_metrics_to_excel(self):
+        filename = "simulation_metrics.xlsx"
+        sheet_name = "ProcessorMetrics"
+
+        if not os.path.exists(filename):
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = sheet_name
+            ws.append(["Actor", "Computation Time (s)", "Communication Wait Time (s)"])
+        else:
+            wb = openpyxl.load_workbook(filename)
+            if sheet_name not in wb.sheetnames:
+                ws = wb.create_sheet(title=sheet_name)
+                ws.append(["Actor", "Computation Time (s)", "Communication Wait Time (s)"])
+            else:
+                ws = wb[sheet_name]
+
+        ws.append([
+            f"{self.name}", 
+            round(self.total_cpu_computation_time , 6), 
+            round(self.total_wait_time_for_task, 6),
+            round(self.total_wait_time_on_od_reply, 6),
+            round(self.total_wait_time_on_fr_reply, 6),
+            round(self.total_wait_time_on_db_reply, 6),
+            round(self.total_comm_time_to_od, 6),
+            round(self.total_comm_time_to_fr, 6),
+            round(self.total_comm_time_to_db, 6),
+            round(self.total_comm_time_to_alert, 6),
+            round(self.total_comm_time_to_dispatcher, 6)
+        ])
+
+        wb.save(filename)               
