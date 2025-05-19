@@ -1,14 +1,11 @@
-# In APP/actors/processing_cpu_actor.py
-from simgrid import Mailbox, this_actor, Engine, Host # Host might not be needed here
-import random # If you keep some simulation logic here
+from simgrid import Mailbox, this_actor, Engine
 
-class ProcessingActorCPU: # Renamed from ProcessingActor in your main.py import
+class ProcessingActorCPU:
     def __init__(self, name: str, 
                  my_mailbox_name: str, 
                  dispatcher_mailbox_name: str, 
                  database_mailbox_name: str, 
                  alert_mailbox_name: str,
-                 zone_id: str,
                  od_accelerator_mb_name: str, fr_accelerator_mb_name: str):
         """
         name: Name of this CPU processing actor.
@@ -22,26 +19,35 @@ class ProcessingActorCPU: # Renamed from ProcessingActor in your main.py import
         
         self.name = name
         self.my_mailbox_name = my_mailbox_name
-        self.my_mailbox = Mailbox.by_name(my_mailbox_name) # Own mailbox
+        self.my_mailbox = Mailbox.by_name(my_mailbox_name)
         
         self.dispatcher_mailbox = Mailbox.by_name(dispatcher_mailbox_name)
         self.database_mailbox = Mailbox.by_name(database_mailbox_name)
         self.alert_mailbox = Mailbox.by_name(alert_mailbox_name)
-        
         self.od_accelerator_mailbox = Mailbox.by_name(od_accelerator_mb_name)
         self.fr_accelerator_mailbox = Mailbox.by_name(fr_accelerator_mb_name)
         
-        # Costs for this CPU part (orchestration, simple logic)
-        self.cpu_orchestration_cost = 1e7 # 10 MFlops, e.g.
-        self.db_query_flops = 200e6 # From previous estimate
-        self.alert_setup_flops = 2e6 # Example
-        self.control_message_size = 100 # Bytes for "ready" message
+        self.cpu_orchestration_cost = 1e7 
+        self.db_query_flops = 200e6 
+        self.alert_setup_flops = 2e6 
+        self.control_message_size = 100 
+        self.task_to_accel_metadata_size = 512 
+        self.face_region_data_size_estimate = 50 * 1024 
+        
+        self.total_cpu_computation_time = 0.0   
+        self.total_wait_time_for_task = 0.0     
+        self.total_wait_time_on_od_reply = 0.0  
+        self.total_wait_time_on_fr_reply = 0.0  
+        self.total_wait_time_on_db_reply = 0.0  
+        
+        self.total_comm_time_to_od = 0.0        
+        self.total_comm_time_to_fr = 0.0        
+        self.total_comm_time_to_db = 0.0        
+        self.total_comm_time_to_alert = 0.0     
+        self.total_comm_time_to_dispatcher = 0.0
+        
+        this_actor.info(f"({self.name}) CPU Processor initialized with mailbox: '{my_mailbox_name}'.")
 
-        # Data sizes for communication with accelerators
-        # These are just estimates for the metadata/command part, actual data is separate.
-        # The visual data part's size will be original_frame_size or derived face_region_size.
-        self.task_to_accel_metadata_size = 512 # bytes for task message structure
-        self.face_region_data_size_estimate = 50 * 1024 # 50KB example for a cropped face sent to FR
 
     def _signal_ready_to_dispatcher(self):
         ready_message = {
@@ -50,127 +56,136 @@ class ProcessingActorCPU: # Renamed from ProcessingActor in your main.py import
             "worker_name": self.name
         }
         this_actor.info(f"({self.name}) Signaling READY to dispatcher.")
+        
+        time_before_put = Engine.clock
         self.dispatcher_mailbox.put(ready_message, self.control_message_size)
-
+        self.total_comm_time_to_dispatcher += (Engine.clock - time_before_put)
+        
     def __call__(self):
         this_actor.info(f"({self.name}) CPU part started. Listening on '{self.my_mailbox_name}'.")
         self._signal_ready_to_dispatcher()
 
         while True:
-            current_task_payload = None # To store the task from dispatcher
+            current_task_payload = None 
             try:
-                # 1. Get task from Dispatcher
+                time_before_get_task = Engine.clock
                 current_task_payload = self.my_mailbox.get()
                 if not isinstance(current_task_payload, dict) or current_task_payload.get("type") != "frame_task":
                     this_actor.warning(f"({self.name}) Received non-task message or malformed task: {current_task_payload}")
-                    self._signal_ready_to_dispatcher() # Become ready again
+                    self._signal_ready_to_dispatcher() 
                     continue
-
-                this_actor.execute(self.cpu_orchestration_cost) # Cost for receiving and parsing task
+                self.total_wait_time_for_task += (Engine.clock - time_before_get_task)
+                
+                time_before_exec = Engine.clock
+                this_actor.execute(self.cpu_orchestration_cost)
+                self.total_cpu_computation_time += (Engine.clock - time_before_exec)
                 
                 frame_content_sim = current_task_payload.get("data")
                 camera_info = current_task_payload.get("camera_info", {})
-                zone_id = camera_info.get("zone", "unknown_zone") # Get zone_id from task
+                zone_id = camera_info.get("zone", "unknown_zone") 
                 original_frame_size = current_task_payload.get("original_frame_size")
 
                 this_actor.info(f"({self.name}) Received task: '{frame_content_sim}' from cam '{camera_info.get('id')}' in Z:{zone_id}.")
 
-                # 2. Offload Object Detection
                 od_task_msg = {
                     "type": "od_task",
-                    "frame_payload": current_task_payload, # Pass along original task for context
+                    "frame_payload": current_task_payload, #
                     "original_frame_size": original_frame_size,
                     "reply_to_mailbox": self.my_mailbox_name
                 }
                 this_actor.info(f"({self.name}) Offloading OD task for frame size {original_frame_size} to OD Accelerator.")
-                # Network cost is for sending the frame data to accelerator
+
+                time_before_put_od = Engine.clock
                 self.od_accelerator_mailbox.put(od_task_msg, original_frame_size) 
+                self.total_comm_time_to_od += (Engine.clock - time_before_put_od)
                 
-                # Wait for OD result (blocking get on own mailbox)
+                time_before_get_od = Engine.clock
                 od_response = self.my_mailbox.get()
                 if not isinstance(od_response, dict) or od_response.get("type") != "od_result":
                     this_actor.error(f"({self.name}) Expected OD result, got: {od_response}. Aborting task.")
                     self._signal_ready_to_dispatcher()
                     continue
+                self.total_wait_time_on_od_reply += (Engine.clock - time_before_get_od)
                 
-                this_actor.execute(self.cpu_orchestration_cost) # Cost for processing OD result
+                time_before_exec = Engine.clock
+                this_actor.execute(self.cpu_orchestration_cost) 
+                self.total_cpu_computation_time += (Engine.clock - time_before_exec)
                 od_result_data = od_response.get("result", {"person_detected": False})
                 this_actor.info(f"({self.name}) Got OD result: Person detected = {od_result_data.get('person_detected')}")
 
                 if od_result_data.get("person_detected"):
                     person_coordinates = od_result_data.get("coordinates")
                     
-                    # 3. Offload Facial Recognition
                     fr_task_msg = {
                         "type": "fr_task",
-                        "frame_payload_info": current_task_payload, # Pass original task info
-                        "person_coordinates": person_coordinates,
-                        "face_region_size": self.face_region_data_size_estimate, # Estimated size of data for FR
+                        "frame_payload_info": current_task_payload, 
+                        "face_region_size": self.face_region_data_size_estimate, 
+                        "face_coordinates": person_coordinates,
                         "reply_to_mailbox": self.my_mailbox_name
                     }
                     this_actor.info(f"({self.name}) Offloading FR task (face region size {self.face_region_data_size_estimate}) to FR Accelerator.")
-                    # Network cost for sending face region data
-                    self.fr_accelerator_mailbox.put(fr_task_msg, self.face_region_data_size_estimate)
 
-                    # Wait for FR result
-                    fr_response = self.my_mailbox.get()
+                    time_before_put_fr = Engine.clock
+                    self.fr_accelerator_mailbox.put(fr_task_msg, self.face_region_data_size_estimate)
+                    self.total_comm_time_to_fr += (Engine.clock - time_before_put_fr)
+
+                    time_before_get_fr = Engine.clock
+                    fr_response = self.my_mailbox.get() 
                     if not isinstance(fr_response, dict) or fr_response.get("type") != "fr_result":
                         this_actor.error(f"({self.name}) Expected FR result, got: {fr_response}. Aborting FR part.")
-                        # Decide if to alert as unknown or just stop this task processing
+
                         self._signal_ready_to_dispatcher()
                         continue
+                    self.total_wait_time_on_fr_reply += (Engine.clock - time_before_get_fr)
                         
-                    this_actor.execute(self.cpu_orchestration_cost) # Cost for processing FR result
+                    time_before_exec = Engine.clock
+                    this_actor.execute(self.cpu_orchestration_cost) 
+                    self.total_cpu_computation_time += (Engine.clock - time_before_exec)
                     face_id = fr_response.get("face_id", "unknown_face")
                     this_actor.info(f"({self.name}) Got FR result: Face ID = {face_id}")
 
-                    if face_id != "unknown_face": # Or other "not recognized" markers
-                        # 4. Query Database
+                    if face_id != "unknown_face": 
                         db_query_payload = {
                             "type": "auth_query",
                             "face_id": face_id,
-                            "zone_id": zone_id, # Use zone_id from the task
+                            "zone_id": zone_id, 
                             "reply_to_mailbox": self.my_mailbox_name
                         }
                         this_actor.info(f"({self.name}) Querying DB for {face_id} in {zone_id}")
-                        self.database_mailbox.put(db_query_payload, 1024) # Small query size
-
-                        # Wait for DB Response
-                        db_auth_response = self.my_mailbox.get()
+                        
+                        time_before_put_db = Engine.clock
+                        self.database_mailbox.put(db_query_payload, self.db_query_message_size) 
+                        self.total_comm_time_to_db += (Engine.clock - time_before_put_db)
+                        
+                        time_before_get_db = Engine.clock
+                        db_auth_response = self.my_mailbox.get() 
                         if not isinstance(db_auth_response, dict) or db_auth_response.get("type") != "auth_result":
                              this_actor.error(f"({self.name}) Expected DB auth result, got: {db_auth_response}")
                              self._signal_ready_to_dispatcher()
                              continue
+                        self.total_wait_time_on_db_reply += (Engine.clock - time_before_get_db)
                         
-                        this_actor.execute(self.cpu_orchestration_cost) # Cost for processing DB response
+                        time_before_exec = Engine.clock
+                        this_actor.execute(self.cpu_orchestration_cost)
+                        self.total_cpu_computation_time += (Engine.clock - time_before_exec)
                         auth_status = db_auth_response.get("status", "Error")
                         this_actor.info(f"({self.name}) DB Auth for {face_id} in {zone_id}: {auth_status}")
 
                         if auth_status == "Unauthorized":
                             self.send_alert(current_task_payload, face_id, zone_id, "Unauthorized access")
-                    else: # Face was unknown from FR step
+                    else: 
                         self.send_alert(current_task_payload, face_id, zone_id, "Unknown face detected")
-                else: # No person detected by OD
+                else: 
                     this_actor.info(f"({self.name}) No person detected by OD. Task complete.")
 
-                # 5. Signal Ready to Dispatcher
                 self._signal_ready_to_dispatcher()
 
             except Exception as e:
                 this_actor.error(f"({self.name}) SimgridError in main loop: {e}. Signaling ready.")
                 try:
-                    self._signal_ready_to_dispatcher() # Attempt to become ready again
-                except Exception as sig_e:
-                     this_actor.error(f"({self.name}) Failed to signal ready after error: {sig_e}")
-                # break # Consider if actor should stop on error or try to continue
-            except Exception as e_gen:
-                this_actor.error(f"({self.name}) GENERIC ERROR in main loop: {e_gen}. Signaling ready.")
-                try:
                     self._signal_ready_to_dispatcher()
                 except Exception as sig_e:
-                     this_actor.error(f"({self.name}) Failed to signal ready after generic error: {sig_e}")
-                # break
-
+                     this_actor.error(f"({self.name}) Failed to signal ready after error: {sig_e}")
 
         this_actor.info(f"({self.name}) CPU part stopping.")
 
@@ -186,7 +201,12 @@ class ProcessingActorCPU: # Renamed from ProcessingActor in your main.py import
         }
         this_actor.warning(f"({self.name}) SENDING ALERT: {alert_data}")
         try:
-            this_actor.execute(self.alert_setup_flops)
-            self.alert_mailbox.put(alert_data, 2048) # Example alert size
+            time_before_exec = Engine.clock
+            this_actor.execute(self.alert_setup_flops) 
+            self.total_cpu_computation_time += (Engine.clock - time_before_exec)
+            
+            time_before_put = Engine.clock
+            self.alert_mailbox.put(alert_data, self.alert_message_size)
+            self.total_comm_time_to_alert += (Engine.clock - time_before_put)
         except Exception as e:
             this_actor.error(f"({self.name}) Failed to send alert: {e}")

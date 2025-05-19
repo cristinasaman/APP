@@ -8,7 +8,7 @@ class CameraActor:
         dispatcher_mailbox_name: Mailbox name of the target DispatcherActor.
         frame_size: Size of the frame data in bytes.
         capture_interval: Time interval between frame captures in seconds.
-        max_frames: Maximum number of frames to capture (if using MAX_FRAMES_PER_CAMERA).
+        max_frames: Maximum number of frames to capture.
         """
         
         self.camera = camera
@@ -27,7 +27,6 @@ class CameraActor:
         this_actor.info(f"Camera '{self.camera}' initialized with zone '{self.zone_id}'. Targeting mailbox '{self.dispatcher_mailbox_name}'. Frame size: {self.frame_size} bytes. Capture interval: {self.capture_interval} seconds. Max frames: {self.max_frames}.")
 
     def __call__(self):
-        this_actor.info(f"Camera '{self.camera}' __call__ STARTED.")
         this_actor.info(f"({self.camera} in Zone {self.zone_id}) Started. Target: '{self.dispatcher_mailbox_name}'. Max frames: {self.max_frames if self.max_frames != float('inf') else 'unlimited'}.")
         
         frame_count = 0

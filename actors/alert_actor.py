@@ -1,11 +1,3 @@
-# AlertActor (runs on alert_server):
-
-# Setup: Get own mailbox.
-# Loop:
-# Wait for and receive an alert (alert_data = mailbox->get()).
-# Simulate logging/displaying the alert: Define cost (flops_alert_log). Execute computation (simgrid::s4u::this_actor::execute(flops_alert_log)).
-# (Optional) Print a message to the simulation output indicating an alert was received.
-
 from simgrid import Mailbox, this_actor, Engine
 
 class AlertActor:
@@ -26,7 +18,6 @@ class AlertActor:
                 
                 this_actor.info(f"Received alert '{alert_data}' at {Engine.clock:.3f}")
                 
-                # Simulate logging/displaying the alert
                 flops_alert_log = 500
                 this_actor.execute(flops_alert_log)
                 

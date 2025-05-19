@@ -1,14 +1,25 @@
-# dispatcher_actor.py (or add to your main actor file)
-from simgrid import Actor, Engine, Host, Mailbox, this_actor # Engine not strictly needed here
-import collections # For deque
+from simgrid import Mailbox, this_actor, Engine
+import collections
 
 class DispatcherActor:
     def __init__(self, mailbox_name: str):
+        """
+        mailbox_name: Name of the mailbox for this DispatcherActor.
+        mailbox: The mailbox object for this actor.
+        task_queue: Queue for incoming tasks.
+        available_workers_queue: Queue for available workers.
+        dispatch_cost: Cost of dispatching a task to a worker. (in MFlops)
+        total_wait_time_on_get: Total wait time for getting tasks.
+        total_dispatch_computation_time: Total computation time for dispatching tasks.
+        """
+        
         self.mailbox_name = mailbox_name
         self.mailbox = Mailbox.by_name(mailbox_name)
         self.task_queue = collections.deque()
         self.available_workers_queue = collections.deque()
         self.dispatch_cost = 1e6 
+        self.total_wait_time_on_get = 0.0
+        self.total_dispatch_computation_time = 0.0
         
         this_actor.info(f"Dispatcher initialized with mailbox '{self.mailbox_name}'.")
 
@@ -18,7 +29,9 @@ class DispatcherActor:
         while True:
             try:
                 message = self.mailbox.get()
+                time_before_execute = Engine.clock
                 this_actor.execute(self.dispatch_cost)
+                self.total_dispatch_computation_time += (Engine.clock - time_before_execute)
 
                 if not isinstance(message, dict) or "type" not in message:
                     this_actor.warning(f"Received malformed message: {message}")
@@ -33,6 +46,7 @@ class DispatcherActor:
                     zone_id = cam_info.get('zone', 'UnknownZone')
                     
                     this_actor.info(f"Received new frame task from '{cam_id}' for zone '{zone_id}'. Tasks queued: {len(self.task_queue)}.")
+                    
                 elif msg_type == "worker_ready":
                     worker_mb_name = message.get("worker_mailbox")
                     worker_name = message.get("worker_name", "UnknownWorker") 
@@ -50,6 +64,7 @@ class DispatcherActor:
             except Exception as e:
                 this_actor.error(f"Error in main loop: {e}")
                 break
+            
         this_actor.info("Stopping.")
 
     def _try_dispatch_tasks(self):
@@ -59,14 +74,16 @@ class DispatcherActor:
 
             try:
                 worker_mailbox = Mailbox.by_name(worker_mailbox_name)
-                
                 message_size_to_worker = 1024 
-                
                 worker_mailbox.put(task_to_dispatch, message_size_to_worker)
                 
+                time_before_execute = Engine.clock
                 this_actor.execute(self.dispatch_cost)
+                self.total_dispatch_computation_time += (Engine.clock - time_before_execute)
+                
                 cam_info = task_to_dispatch.get('camera_info', {})
                 cam_id = cam_info.get('id', 'UnknownCam')
+                
                 this_actor.info(f"Dispatched task (from cam: {cam_id}) to worker '{worker_mailbox_name}'. Tasks left: {len(self.task_queue)}. Workers avail: {len(self.available_workers_queue)}")
                 
             except Exception as e:
